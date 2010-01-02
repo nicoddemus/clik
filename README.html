@@ -307,7 +307,6 @@ ul.auto-toc {
 <div class="document" id="clik">
 <h1 class="title">Clik</h1>
 
-<p><em>Note: the README is a work-in-progress.</em></p>
 <p>Clik (CLI Kit) requires Python 2.6 <a class="footnote-reference" href="#id3" id="id1">[1]</a>.</p>
 <p>Clik provides glue code for subcommand-style CLI applications. It does
 command dispatch and option parsing. It provides
@@ -450,7 +449,7 @@ to use it. For hello_world, you'd typically just use a
 one-liner with no extended help.
 </pre>
 <p><tt class="docutils literal">hello_world</tt> is aptly named but a bit painful to type over and
-over again. Adding a shorter names is:</p>
+over again. Adding shorter names is easy:</p>
 <pre class="literal-block">
 &#64;downloader(alias='hw')
 def hello_world():
@@ -504,6 +503,1072 @@ with the least amount of code necessary, extend application-wide
 functionality by providing arguments to the app constructor and
 configure subcommand-level functionality by providing arguments to the
 decorator.</p>
+<p>Before moving on, I should be clear: while <tt class="docutils literal">hello_world()</tt> has
+started its life as a typical function, its signature is inspected at
+runtime and dynamically passed the desired arguments. You may only ask
+for arguments with known names. Base arguments:</p>
+<ul class="simple">
+<li><tt class="docutils literal">args</tt>: List of arguments, not including application or command name.</li>
+<li><tt class="docutils literal">argv</tt>: List of arguments including the command name.</li>
+<li><tt class="docutils literal">opts</tt>: <tt class="docutils literal">optparse.Values</tt> for the invocation.</li>
+<li><tt class="docutils literal">app</tt>: The <tt class="docutils literal">click.App</tt> running the subcommand.</li>
+<li><tt class="docutils literal">console</tt>: <tt class="docutils literal">clik.Console</tt> object.</li>
+<li><tt class="docutils literal">conf</tt>: <tt class="docutils literal">ConfigParser.ConfigParser</tt> instance. Will be empty if
+conf is not enabled.</li>
+<li><tt class="docutils literal">log</tt>: <tt class="docutils literal">logging.Logger</tt> instance for the application. Has no
+handlers (thus does &quot;nothing&quot;) if logging is not enabled.</li>
+</ul>
+<p>You can extend (or override, if you want) the argument values by
+providing the <tt class="docutils literal">args_callback</tt> a value in the app constructor:</p>
+<pre class="literal-block">
+def my_callback(opts, args):
+    # my_callback can take any of the base objects as arguments.
+    return {'conf': MyConfigObject(), 'someval': AnotherThing()}
+
+downloader = clik.App('downloader',
+                      args_callback=my_callback)
+
+&#64;downloader
+def my_subcommand(conf, someval):
+    # conf will be the MyConfigObject()
+    # someval is the AnotherThing instance
+</pre>
+<p><tt class="docutils literal">downloader</tt> eventually makes use of all these facilities. Read on
+to see how.</p>
+</div>
+<div class="section" id="downloader">
+<h1>Downloader</h1>
+<p>Let's get down to business with the code. I'll start by showing you
+the basic working implementation and then trick it out with only a bit
+more code.</p>
+<p><tt class="docutils literal">downloader</tt> should be able to list files in a local downloads
+directory, remove files from the directory and download data from URLs
+into the directory.</p>
+<pre class="literal-block">
+import os
+import urllib
+import urlparse
+
+import clik
+
+
+DOWNLOADS_PATH = os.path.join(os.path.dirname(__file__), 'downloads')
+
+
+def downloads_dir():
+    path = os.path.expanduser(os.path.expandvars(DOWNLOADS_PATH))
+    if not os.path.exists(path):
+        os.mkdir(path)
+    return path
+
+
+downloader = clik.App('downloader',
+                      version='1.0',
+                      description='Manages downloads in a local directory.')
+
+
+&#64;downloader(alias='ls')
+def list():
+    &quot;&quot;&quot;List the contents of the downloads directory.&quot;&quot;&quot;
+    downloads = downloads_dir()
+    filenames = os.listdir(downloads)
+    for filename in filenames:
+        print filename
+    return 0
+
+
+&#64;downloader(alias='rm')
+def remove(args):
+    &quot;&quot;&quot;Remove a downloaded file.&quot;&quot;&quot;
+    if len(args) &lt; 1:
+        print &gt;&gt;sys.stderr, 'error: expecting at least one filename to remove'
+        return 1
+    downloads = downloads_dir()
+    for arg in args:
+        path = os.path.join(downloads, arg)
+        if os.path.exists(path):
+            os.unlink(path)
+        else:
+            print &gt;&gt;sys.stdout, 'no such file or directory: '+path
+    return 0
+
+
+&#64;downloader(alias='dl')
+def download(args):
+    if len(args) &lt; 1:
+        print &gt;&gt;sys.stderr, 'error: you must provide a URL'
+        return 1
+    url = args[0]
+
+    if len(args) &gt; 1:
+        name = args[1]
+    else:
+        name = urlparse.urlparse(url).path.split('/')[-1]
+        if not name:
+            name = 'index.html'
+
+    downloads = downloads_dir()
+    download_path = os.path.join(downloads, name)
+    if os.path.exists(download_path):
+        return 0
+
+    print 'fetching %s...' % url
+    try:
+        urllib.urlretrieve(url, download_path)
+    except IOError, e:
+        print &gt;&gt;sys.stderr, e
+        return 1
+    return 0
+</pre>
+<p>In action:</p>
+<pre class="literal-block">
+$ python downloader.py dl -h
+Usage: downloader download|dl [options]
+
+No description.
+
+Options:
+  --version   show program's version number and exit
+  -h, --help  show this help message and exit
+
+
+$ python downloader.py ls -h
+Usage: downloader list|ls [options]
+
+List the contents of the downloads directory.
+
+Options:
+  --version   show program's version number and exit
+  -h, --help  show this help message and exit
+
+
+$ python downloader.py rm -h
+Usage: downloader remove|rm [options]
+
+Remove a downloaded file.
+
+Options:
+  --version   show program's version number and exit
+  -h, --help  show this help message and exit
+
+
+$ python downloader.py ls
+$ python downloader.py dl http://python.org python-index.html
+fetching http://python.org...
+$ python downloader.py dl http://python.org python-index.html
+$ python downloader.py ls
+python-index.html
+$ python downloader.py rm python-index.html
+$ python downloader.py ls
+$
+</pre>
+<p>The first niggling issue to take care of is the usage for <tt class="docutils literal">dl</tt> and
+<tt class="docutils literal">rm</tt>. Clik will always make the usage start with <tt class="docutils literal"><span class="pre">&lt;app-name&gt;</span>
+<span class="pre">&lt;command-name&gt;</span></tt> but you can override what comes after:</p>
+<pre class="literal-block">
+&#64;downloader(alias='rm', usage='[file1 [file2 [...]]] [options]')
+def remove(args):
+    ...
+
+&#64;downloader(alias='dl', usage='URL [local-name] [options]')
+def download(args):
+    ...
+
+
+$ python downloader.py dl -h
+Usage: downloader download|dl URL [local-name] [options]
+
+No description.
+
+Options:
+  --version   show program's version number and exit
+  -h, --help  show this help message and exit
+
+
+$ python downloader.py rm -h
+Usage: downloader remove|rm [file1 [file2 [...]]] [options]
+
+Remove a downloaded file.
+
+Options:
+  --version   show program's version number and exit
+  -h, --help  show this help message and exit
+</pre>
+</div>
+<div class="section" id="command-shell">
+<h1>Command Shell</h1>
+<p>Perhaps you noticed the <tt class="docutils literal">shell/sh</tt> command I've neglected to talk
+about thus far. In my opinion, clik's best feature is the
+transparently-provided command shell for your application. Without
+changing a single line, <tt class="docutils literal">downloader</tt> can do this:</p>
+<pre class="literal-block">
+$ python downloader.py sh
+(downloader)&gt; ?
+
+Documented commands (type help &lt;topic&gt;):
+========================================
+clear  download  exit  list  quit  remove
+
+Undocumented commands:
+======================
+dl  help  ls  rm
+
+(downloader)&gt; ? download
+Usage: download|dl URL [local-name] [options]
+
+No description.
+
+Options:
+  --version   show program's version number and exit
+  -h, --help  show this help message and exit
+
+
+(downloader)&gt; ls
+(downloader)&gt; dl http://python.org python-index.html
+fetching http://python.org...
+(downloader)&gt; dl http://python.org python-index.html
+(downloader)&gt; ls
+python-index.html
+(downloader)&gt; rm python-index.html
+(downloader)&gt; ls
+(downloader)&gt; exit
+$
+</pre>
+<p>Aliases are listed as undocumented commands so that &quot;working command
+set&quot; is clear.</p>
+<p><strong>Nitty Gritty</strong></p>
+<ul>
+<li><p class="first">Passing <tt class="docutils literal">shell_command=False</tt> to the app constructor disables the
+shell command entirely.</p>
+</li>
+<li><p class="first">Passing <tt class="docutils literal">shell_clear_command=False</tt> to the app constructor
+disables the automatically-provided shell <tt class="docutils literal">clear</tt> command. If
+<tt class="docutils literal">shell_command</tt> is <tt class="docutils literal">False</tt>, this has no effect (the clear
+command will not be added).</p>
+</li>
+<li><p class="first">You can change the prompt by passing a string to <tt class="docutils literal">shell_prompt</tt> in
+the app constructor. <tt class="docutils literal">%name</tt> will be substituted with the
+application name. E.g. <tt class="docutils literal"><span class="pre">shell_prompt='%name%'</span></tt> would make
+downloader's shell prompt <tt class="docutils literal">downloader%</tt>.</p>
+</li>
+<li><p class="first">You can change the shell's alias by passing <tt class="docutils literal">shell_alias</tt> to the
+app constructor. This accepts the same values as other aliases
+(string or sequence of strings). Defaults to <tt class="docutils literal">sh</tt>.</p>
+</li>
+<li><p class="first">You can indicate that a subcommand should be unavailable in the
+command shell by passing <tt class="docutils literal">shell=False</tt> to the decorator. E.g.:</p>
+<pre class="literal-block">
+&#64;downloader(shell=False)
+def no_shell_example():
+    print 'I will be available only from the command-line'
+</pre>
+</li>
+<li><p class="first">You can indicate a subcommand should be unavailable from the command
+line by passing <tt class="docutils literal">cli=False</tt> to the decorator. E.g.:</p>
+<pre class="literal-block">
+&#64;downloader(cli=False)
+def no_cli_example():
+    print 'I will be available only in the command shell'
+</pre>
+</li>
+</ul>
+</div>
+<div class="section" id="options">
+<h1>Options</h1>
+<p>Right now, the downloads path is hardcoded into <tt class="docutils literal">downloader</tt>. Let's
+add an option to the app to let users specify which directory should
+contain the downloads:</p>
+<pre class="literal-block">
+from optparse import make_option as opt
+
+def downloads_dir(opts):
+    path = opts.downloads_directory or DOWNLOADS_PATH
+    # ...
+
+downloader = clik.App('downloader',
+                      opts=opt('-d', '--downloads-dir',
+                               dest='downloads_directory', default=None,
+                               help=('Directory where downloads are stored '
+                                     '[default: '+DOWNLOADS_PATH+']')))
+
+
+# Add ``opts`` to each subcommand signature and call to downloads_dir() E.g.
+
+&#64;downloader(alias='ls')
+def list(opts):
+    downloads = downloads_dir(opts)
+    # ...
+
+
+$ python downloader.py ls -h
+Usage: downloader list|ls [options]
+
+List the contents of the downloads directory.
+
+Options:
+  -d DOWNLOADS_DIRECTORY, --downloads-dir=DOWNLOADS_DIRECTORY
+                        Directory where downloads are stored [default:
+                        downloads]
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+
+
+$ python downloader.py ls
+$ python downloader.py dl http://python.org
+fetching http://python.org...
+$ python downloader.py ls
+index.html
+$ python downloader.py ls -d otherdir
+$ python downloader.py dl http://python.org -d otherdir
+fetching http://python.org...
+$ python downloader.py ls -d otherdir
+index.html
+$ python downloader.py rm index.html -d otherdir
+$ python downloader.py ls -d otherdir
+$ python downloader.py ls
+index.html
+</pre>
+<p>This is a step in the right direction, but still pretty
+annoying as there's no way to permanently specify the downloads
+directory. We'll deal with this later on, with the configuration
+system.</p>
+<p>Note that <tt class="docutils literal">opts</tt> can be a single <tt class="docutils literal">optparse.Option</tt> or a sequence
+of options.</p>
+<p>If you've tried to download content from a nonexistent URL, you
+might have noticed that <tt class="docutils literal">downloader</tt> hangs forever (or, longer than
+I was willing to wait to find out). We'll add a <tt class="docutils literal"><span class="pre">-t</span></tt> option to let
+users specify the timeout.</p>
+<p>Also, to get a fresh copy of a URL, the user must <tt class="docutils literal">rm</tt> the local
+file before running <tt class="docutils literal">dl</tt>. We'll add an <tt class="docutils literal"><span class="pre">-o</span></tt> option so users can
+indicate they'd like a fresh download:</p>
+<pre class="literal-block">
+&#64;downloader(alias='dl', usage='URL [local-name] [options]',
+            opts=(opt('-t', '--timeout', dest='timeout', type='int',
+                      default=30, help='Connection timeout [default %default]'),
+                  opt('-o', '--overwrite', dest='overwrite', action='store_true',
+                      default=False, help='Overwrite (re-download) file')))
+def download(args, opts):
+    # ...
+    if os.path.exists(download_path):
+        if opts.overwrite:
+            os.unlink(download_path)
+        else:
+            return 0
+
+    import socket
+    socket.setdefaulttimeout(opts.timeout)
+    print 'fetching %s...' % url
+    # ...
+
+
+
+$ python downloader.py dl -h
+Usage: downloader download|dl URL [local-name] [options]
+
+Downloads content from the internet.
+
+Options:
+  -t TIMEOUT, --timeout=TIMEOUT
+                        Connection timeout [default 30]
+  -o, --overwrite       Overwrite (re-download) file
+  -d DOWNLOADS_DIRECTORY, --downloads-dir=DOWNLOADS_DIRECTORY
+                        Directory where downloads are stored [default:
+                        downloads]
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+
+
+$ python downloader.py ls
+$ python downloader.py dl http://python.org
+fetching http://python.org...
+$ python downloader.py dl http://python.org
+$ python downloader.py dl http://python.org -o
+fetching http://python.org...
+$ python downloader.py ls
+index.html
+</pre>
+</div>
+<div class="section" id="supplying-custom-arguments">
+<h1>Supplying Custom Arguments</h1>
+<p>Each subcommand has to call <tt class="docutils literal">downloads_dir</tt>, which is annoying
+(especially in the case of <tt class="docutils literal">ls</tt> and <tt class="docutils literal">rm</tt> which otherwise don't use the
+options argument). In this case you can use the <tt class="docutils literal">args_callback</tt>
+argument to the app constructor. <tt class="docutils literal">args_callback</tt> should be a
+function whose signature follows the same rules as subcommands and
+should return a dictionary with {argument name: value} pairs.</p>
+<pre class="literal-block">
+def downloads_dir(opts):
+    # ...
+    return {'downloads': path}
+
+downloader = clik.App('downloader',
+                      args_callback=downloads_dir)
+
+def list(downloads):
+    # -downloads = downloads_dir(opts)
+    # ...
+
+def remove(args, downloads):
+    # -downloads = downloads_dir(opts)
+    # ...
+
+def download(args, opts, downloads):
+    # -downloads = downloads_dir(opts)
+    # ...
+</pre>
+</div>
+<div class="section" id="configuration">
+<h1>Configuration</h1>
+<p>Sooner or later every CLI application needs configuration. Clik
+provides for ini-style configuration with the common pattern of
+reading a list of files, each successive file's configuration
+overriding any previously-read values. By default, clik will look for
+configuration files in <tt class="docutils literal"><span class="pre">/etc/your-app-name</span></tt>, then
+<tt class="docutils literal"><span class="pre">~/.your-app-name</span></tt>, then the filepath given in the
+<tt class="docutils literal">$YOURAPPNAME_CONFIG</tt> envvar, then the value of <tt class="docutils literal"><span class="pre">--config</span></tt>, if
+provided.</p>
+<p>For downloader, we want the user to be able to permanently configure
+the download directory. In their configuration file, they'll set it up
+like this:</p>
+<pre class="literal-block">
+[downloader]
+path = /path/to/their/downloads
+</pre>
+<p>To enable configuration, add <tt class="docutils literal">conf_enabled=True</tt> to the
+app constructor and specify the defaults:</p>
+<pre class="literal-block">
+downloader = clik.App('downloader',
+                      conf_enabled=True,
+                      conf_defaults={'downloader': {'path': DOWNLOADS_PATH}})
+</pre>
+<p><tt class="docutils literal">conf_defaults</tt> should be a dictionary of dictionaries representing
+the default sections and options. It can also be a string pointing to
+a module with a similarly-defined <tt class="docutils literal">conf_defaults</tt> attribute. E.g.,
+we could create a file &quot;downloader_conf.py&quot;, define <tt class="docutils literal">conf_defaults</tt>
+in that file, and use <tt class="docutils literal"><span class="pre">clik.App(conf_defaults='downloader_conf')</span></tt>.</p>
+<p>When conf is enabled, subcommands can take the <tt class="docutils literal">conf</tt> argument,
+which will be an instance of <tt class="docutils literal">ConfigParser.SafeConfigParser</tt> by
+default. Because the directory-handling code for <tt class="docutils literal">downloader</tt> is in
+<tt class="docutils literal">downloads_dir()</tt> we'll add the config-handling code there:</p>
+<pre class="literal-block">
+def downloads_dir(opts, conf):
+    path = opts.downloads_directory or conf.get('downloader', 'path') or DOWNLOADS_PATH
+    # ...
+
+
+$ python downloader.py ls -h
+Usage: downloader list|ls [options]
+
+List the contents of the downloads directory.
+
+Options:
+  -d DOWNLOADS_DIRECTORY, --downloads-dir=DOWNLOADS_DIRECTORY
+                        Directory where downloads are stored [default:
+                        downloads]
+  --config=CONF_PATH    Path to config file (will read /etc/downloader,
+                        ~/.downloader, $DOWNLOADER_CONFIG, then this value, if
+                        set)
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+
+
+$ python downloader.py ls
+$ python downloader.py dl http://python.org
+fetching http://python.org...
+$ python downloader.py ls
+index.html
+$ cat &gt;&gt;~/.downloader
+[downloader]
+path = ./downloads2
+^C
+$ python downloader.py ls
+$ python downloader.py dl http://python.org
+fetching http://python.org...
+$ python downloader.py ls
+index.html
+$ ls
+README              downloader.py   downloads       downloads2
+$ cat &gt;&gt;cfg
+[downloader]
+path = ./downloads3
+^C
+$ export DOWNLOADER_CONFIG=./cfg
+$ python downloader.py ls
+$ python downloader.py dl http://python.org
+fetching http://python.org...
+$ python downloader.py ls
+index.html
+$ ls
+README      downloader.py   downloads2
+cfg         downloads       downloads3
+$ cat &gt;&gt;cfg2
+[downloader]
+path = ./downloads4
+^C
+$ python downloader.py ls --config=./cfg2
+$ python downloader.py dl http://python.org --config=./cfg2
+fetching http://python.org...
+$ python downloader.py ls --config=./cfg2
+index.html
+$ ls
+README      cfg2            downloads       downloads3
+cfg         downloader.py   downloads2      downloads4
+</pre>
+<p><strong>Details</strong></p>
+<ul>
+<li><p class="first">You can change the <tt class="docutils literal">ConfigParser</tt> class by passing a value to
+<tt class="docutils literal">configparser_class</tt> in the app constructor. By default this is
+<tt class="docutils literal">ConfigParser.SafeConfigParser</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">conf_locations</tt> determines the base list of places to look for
+configuration. This can be a string or sequence of
+strings. <tt class="docutils literal">%name</tt> is replaced with the application's name. Defaults
+to <tt class="docutils literal"><span class="pre">('/etc/%name',</span> <span class="pre">'~/.%name')</span></tt>.</p>
+</li>
+<li><p class="first">Disable configuration via <tt class="docutils literal"><span class="pre">--config</span></tt> by passing
+<tt class="docutils literal">conf_opts=False</tt> to the app constructor.</p>
+</li>
+<li><p class="first">You can change the envvar name by passing a string to
+<tt class="docutils literal">conf_envvar_name</tt>. <tt class="docutils literal">%NAME</tt> will be substituted with the app
+name in all caps. For example, to change the envvar name from
+<tt class="docutils literal">DOWNLOADER_CONFIG</tt> to <tt class="docutils literal">DOWNLOADER_CFG</tt>:</p>
+<pre class="literal-block">
+downloader = clik.App('downloader',
+                      conf_envvar_name='%NAME_CFG')
+</pre>
+</li>
+<li><p class="first">Disable config via envvar by passing <tt class="docutils literal">conf_envvar_name=None</tt>.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="console-output">
+<h1>Console Output</h1>
+<p>Another common need among CLI applications is output control
+(<tt class="docutils literal"><span class="pre">-v/-q</span></tt> options). To enable those options, add
+<tt class="docutils literal">console_opts=True</tt> to the app constructor:</p>
+<pre class="literal-block">
+downloader = clik.App('downloader',
+                      console_opts=True)
+</pre>
+<p>Subcommand functions can take the <tt class="docutils literal">console</tt> object, which has these
+methods:</p>
+<pre class="literal-block">
+console.quiet('Always emitted to stdout')
+console.q('Alias for console.quiet()')
+console.normal('Emitted if the user does not pass -q')
+console.n('Alias for console.normal()')
+console.verbose('Emitted only if the user passes -v')
+console.v('Alias for console.verbose()')
+console.error('Always emitted to stderr')
+</pre>
+<p>By default, a single newline is emitted after the string, but you can
+change that using the <tt class="docutils literal">newlines</tt> argument:</p>
+<pre class="literal-block">
+console.n('Doing something...', newlines=0)
+console.n('done')
+</pre>
+<p>There is also a small colorization markup language:</p>
+<pre class="literal-block">
+console.q('&lt;red&gt;Error:&lt;/&gt; something bad happened.')
+</pre>
+<p>The complete list of colors is in the appendix.</p>
+<p>Updating <tt class="docutils literal">downloader</tt> to use the console system:</p>
+<pre class="literal-block">
+def downloads_dir(opts, conf, console):
+    path = opts.downloads_directory or conf.get('downloader', 'path') or DOWNLOADS_PATH
+    path = os.path.expanduser(os.path.expandvars(path))
+    console.v('downloads directory is '+path)
+    if not os.path.exists(path):
+        console.v('downloads directory does not exist, creating')
+        os.mkdir(path)
+    return {'downloads': path}
+
+
+downloader = clik.App('downloader',
+                      version='1.0',
+                      description='Manages downloads in a local directory.',
+                      console_opts=True,
+                      conf_enabled=True,
+                      conf_defaults={'downloader': {'path': DOWNLOADS_PATH}},
+                      opts=opt('-d', '--downloads-dir',
+                               dest='downloads_directory', default=None,
+                               help=('Directory where downloads are stored '
+                                     '[default: '+DOWNLOADS_PATH+']')),
+                      args_callback=downloads_dir)
+
+
+&#64;downloader(alias='ls')
+def list(downloads, console):
+    &quot;&quot;&quot;List the contents of the downloads directory.&quot;&quot;&quot;
+    filenames = os.listdir(downloads)
+    console.n('%i files in downloads' % len(filenames))
+    for filename in filenames:
+        console.q(filename)
+    return 0
+
+
+&#64;downloader(alias='rm', usage='[file1 [file2 [...]]] [options]')
+def remove(args, downloads, console):
+    &quot;&quot;&quot;Remove a downloaded file.&quot;&quot;&quot;
+    if len(args) &lt; 1:
+        console.error('error: expecting at least one filename to remove')
+        return 1
+    for arg in args:
+        path = os.path.join(downloads, arg)
+        if os.path.exists(path):
+            console.v('removing '+path)
+            os.unlink(path)
+        else:
+            console.error('&lt;red&gt;error:&lt;/&gt; no such file or directory: '+path)
+    return 0
+
+
+&#64;downloader(alias='dl', usage='URL [local-name] [options]',
+            opts=(opt('-t', '--timeout', dest='timeout', type='int',
+                      default=30, help='Connection timeout [default %default]'),
+                  opt('-o', '--overwrite', dest='overwrite', action='store_true',
+                      default=False, help='Overwrite (re-download) file')))
+def download(args, opts, downloads, console):
+    &quot;&quot;&quot;Downloads content from the internet.&quot;&quot;&quot;
+    if len(args) &lt; 1:
+        console.error('&lt;red&gt;error:&lt;/&gt; you must provide a URL')
+        return 1
+    url = args[0]
+
+    if len(args) &gt; 1:
+        name = args[1]
+    else:
+        name = urlparse.urlparse(url).path.split('/')[-1]
+        if not name:
+            name = 'index.html'
+    console.v('url is %s, local name is %s' % (url, name))
+
+    download_path = os.path.join(downloads, name)
+    if os.path.exists(download_path):
+        if opts.overwrite:
+            console.v('local file already exists, overwriting')
+            os.unlink(download_path)
+        else:
+            console.v('local file already exists, not downloading')
+            return 0
+
+    import socket
+    socket.setdefaulttimeout(opts.timeout)
+    console.n('fetching %s...' % url, newlines=0)
+    try:
+        urllib.urlretrieve(url, download_path)
+    except IOError, e:
+        console.n('&lt;red&gt;error&lt;/&gt;')
+        console.error(e)
+        return 1
+    console.n('&lt;bold&gt;done&lt;/&gt;')
+    return 0
+</pre>
+<p>In the terminal:</p>
+<pre class="literal-block">
+$ python downloader.py dl -h
+Usage: downloader download|dl URL [local-name] [options]
+
+Downloads content from the internet.
+
+Options:
+  -t TIMEOUT, --timeout=TIMEOUT
+                        Connection timeout [default 30]
+  -o, --overwrite       Overwrite (re-download) file
+  -d DOWNLOADS_DIRECTORY, --downloads-dir=DOWNLOADS_DIRECTORY
+                        Directory where downloads are stored [default:
+                        downloads]
+  -v, --verbose         Emit verbose information
+  -q, --quiet           Emit only errors
+  --no-color            Do not colorize output
+  --config=CONF_PATH    Path to config file (will read /etc/downloader,
+                        ~/.downloader, $DOWNLOADER_CONFIG, then this value, if
+                        set)
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+
+
+$ python downloader.py dl http://python.org -v
+downloads directory is downloads
+downloads directory does not exist, creating
+url is http://python.org, local name is index.html
+fetching http://python.org...done
+
+$ python downloader.py dl http://python.org -v
+downloads directory is downloads
+url is http://python.org, local name is index.html
+local file already exists, not downloading
+
+$ python downloader.py dl http://python.org -vo
+downloads directory is downloads
+url is http://python.org, local name is index.html
+local file already exists, overwriting
+fetching http://python.org...done
+
+$ python downloader.py dl http://python.org
+
+$ python downloader.py dl http://python.org -oq
+
+$ python downloader.py ls
+1 files in downloads
+index.html
+
+$ python downloader.py ls -q
+index.html
+
+$ python downloader.py ls -v
+downloads directory is downloads
+1 files in downloads
+index.html
+
+$ python downloader.py rm foo
+error: no such file or directory: downloads/foo
+
+$ python downloader.py rm foo --no-color
+error: no such file or directory: downloads/foo
+
+$ python downloader.py rm index.html -v
+downloads directory is downloads
+removing downloads/index.html
+</pre>
+</div>
+<div class="section" id="logging">
+<h1>Logging</h1>
+<p>Last but not least, clik provides an easy, flexible way to set up file-based
+logging. To get started, set <tt class="docutils literal">log_enabled=True</tt> in the app
+constructor:</p>
+<pre class="literal-block">
+downloader = clik.App('downloader',
+                      log_enabled=True)
+</pre>
+<p>Subcommands can take the <tt class="docutils literal">log</tt> argument, which will be the
+<tt class="docutils literal">logging.Logger</tt> instance for the application:</p>
+<pre class="literal-block">
+def downloads_dir(opts, conf, console, log):
+    # ...
+    if not os.path.exists(path):
+        msg = 'downloads directory does not exist, creating'
+        log.info(msg)
+        console.v(msg)
+        os.mkdir(path)
+    return {'downloads': path}
+
+def remove(args, downloads, console, log):
+    # ...
+    for arg in args:
+        path = os.path.join(downloads, arg)
+        if os.path.exists(path):
+            console.v('removing '+path)
+            os.unlink(path)
+            log.info('removed '+path)
+        else:
+            console.error('&lt;red&gt;error:&lt;/&gt; no such file or directory: '+path)
+    return 0
+
+def download(args, opts, downloads, console, log):
+    # ...
+    download_path = os.path.join(downloads, name)
+    if os.path.exists(download_path):
+        if opts.overwrite:
+            console.v('local file already exists, overwriting')
+            os.unlink(download_path)
+            log.info('removed '+download_path)
+        else:
+            console.v('local file already exists, not downloading')
+            return 0
+
+    import socket
+    socket.setdefaulttimeout(opts.timeout)
+    console.n('fetching %s...' % url, newlines=0)
+    try:
+        urllib.urlretrieve(url, download_path)
+    except IOError, e:
+        console.n('&lt;red&gt;error&lt;/&gt;')
+        console.error(e)
+        log.error('could not fetch %s: %s' % (url, e))
+        return 1
+    log.info('fetched '+url)
+    console.n('&lt;bold&gt;done&lt;/&gt;')
+    return 0
+</pre>
+<p>In the shell:</p>
+<pre class="literal-block">
+$ python downloader.py dl -h
+Usage: downloader download|dl URL [local-name] [options]
+
+Downloads content from the internet.
+
+Options:
+  -t TIMEOUT, --timeout=TIMEOUT
+                        Connection timeout [default 30]
+  -o, --overwrite       Overwrite (re-download) file
+  -d DOWNLOADS_DIRECTORY, --downloads-dir=DOWNLOADS_DIRECTORY
+                        Directory where downloads are stored [default:
+                        downloads]
+  -v, --verbose         Emit verbose information
+  -q, --quiet           Emit only errors
+  --no-color            Do not colorize output
+  --config=CONF_PATH    Path to config file (will read /etc/downloader,
+                        ~/.downloader, $DOWNLOADER_CONFIG, then this value, if
+                        set)
+  --log-filename=LOG_FILENAME
+                        Log to file [default: ~/downloader.log]
+  --log-level=LOG_LEVEL
+                        Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+                        [default INFO]
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+
+
+$ python downloader.py dl http://python.org
+fetching http://python.org...done
+$ python downloader.py rm index.html
+$ python downloader.py dl http://does.not.exist
+fetching http://does.not.exist...error
+[Errno socket error] [Errno 8] nodename nor servname provided, or not known
+$ cat ~/downloader.log
+2010-01-02 05:46:59,274 INFO downloads directory does not exist, creating
+2010-01-02 05:46:59,886 INFO fetched http://python.org
+2010-01-02 05:47:02,409 INFO removed downloads/index.html
+2010-01-02 05:47:05,226 ERROR could not fetch http://does.not.exist: [Errno socket error] [Errno 8] nodename nor servname provided, or not known
+$
+</pre>
+<p><strong>Detail</strong></p>
+<p>Logging is extremely configurable, both by you and your end
+users. Arguments to the app constructor that affect logging:</p>
+<ul>
+<li><p class="first"><tt class="docutils literal">log_enabled</tt>: If <tt class="docutils literal">True</tt>, a file-based logging handler is
+created for the application and attached to the logger with the name
+given in <tt class="docutils literal">log_name</tt>. Defaults to <tt class="docutils literal">False</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_name</tt>: Logger name. &quot;%name&quot; is substituted with the
+application name. Defaults to &quot;%name&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_filename</tt>: Default filepath for the application's log (the
+user can override the log path). &quot;%name&quot; is subsituted with the
+application name. Defaults to &quot;~/%name.log&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_level</tt>: Default logging level for the application (user user
+can override the log level). Defaults to <tt class="docutils literal">logging.INFO</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_format</tt>: The string to use for the <tt class="docutils literal">logging.Formatter</tt> for
+the handler. Defaults to &quot;%(asctime)s %(levelname)s %(message)s&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_handler_class</tt>: File-based handler class to use. Defaults to
+<tt class="docutils literal">logging.handlers.RotatingFileHandler</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_handler_kwargs</tt>: Dictionary to use as keyword arguments when
+constructing <tt class="docutils literal">log_handler_class</tt>. <tt class="docutils literal">filename</tt> will always be
+added to this dictionary. Defaults to:</p>
+<pre class="literal-block">
+{'maxBytes': 10 * 1024 * 1024,
+ 'backupCount': 10,
+ 'delay': True}
+</pre>
+</li>
+<li><p class="first"><tt class="docutils literal">log_conf</tt>: If <tt class="docutils literal">True</tt>, the user can configure logging via config
+files (assuming <tt class="docutils literal">conf_enabled=True</tt>). Defaults to <tt class="docutils literal">True</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_conf_section</tt>: The section of the configuration file containing
+log filepath and log level options. &quot;%name&quot; is substituted with the
+application name. Defaults to &quot;%name&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_conf_filename_option</tt>: Name of the option inside
+<tt class="docutils literal">log_conf_section</tt> where the log filepath is specified. &quot;%name&quot; is
+substituted with the application name. Defaults to &quot;log_filename&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_conf_level_option</tt>: Name of the option inside
+<tt class="docutils literal">log_conf_section</tt> where the log filepath is specified. &quot;%name&quot; is
+substituted with the application name. Defaults to &quot;log_level&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_opts</tt>: If <tt class="docutils literal">True</tt> and logging is enabled, subcommands will
+accept <tt class="docutils literal"><span class="pre">--log-filename</span></tt> and <tt class="docutils literal"><span class="pre">--log-level</span></tt> options which can be
+used to configure logging on a per-call basis. Defaults to <tt class="docutils literal">True</tt>
+(ie. &quot;on&quot; if logging is enabled).</p>
+</li>
+</ul>
+<p><em>Configuration via config files.</em> For example, you can change the log
+filepath and level for <tt class="docutils literal">downloader</tt> by setting <tt class="docutils literal">log_filepath</tt> and
+<tt class="docutils literal">log_level</tt> in one of the configuration files:</p>
+<pre class="literal-block">
+[downloader]
+path = path/to/the/downloads/dir
+log_filepath = ~/my-logs/downloader.log
+log_level = DEBUG
+</pre>
+</div>
+<div class="section" id="appendix-clik-app-constructor-arguments">
+<h1>Appendix: <tt class="docutils literal">clik.App</tt> Constructor Arguments</h1>
+<ul>
+<li><p class="first"><tt class="docutils literal">name</tt>: Application name. Required.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">description</tt>: One-line description of the application. Defaults to <tt class="docutils literal">None</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">version</tt>: Version number string. Defaults to <tt class="docutils literal">None</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">args_callback</tt>: Callback function for adding arguments for
+subcommands. Defaults to <tt class="docutils literal">None</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">conf_enabled</tt>: Boolean indicating whether the config system is
+enabled. Defaults to <tt class="docutils literal">False</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">conf_defaults</tt>: Dictionary of dictionaries specifying defaults
+for the config system. Can also be a string naming a module that has
+a <tt class="docutils literal">conf_defaults</tt> attribute with the same format (dictionary of
+dictionaries of defaults). Defaults to <tt class="docutils literal">{}</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">conf_envvar_name</tt>: Environment variable name letting the user
+specify a path to a config file. If <tt class="docutils literal">None</tt>, configuration via
+envvar is not allowed. Defaults to <tt class="docutils literal">%NAME_CONFIG</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">configparser_class</tt>: <tt class="docutils literal">ConfigParser</tt> based class for the config
+object. Defaults to <tt class="docutils literal">ConfigParser.SafeConfigParser</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_enabled</tt>: If <tt class="docutils literal">True</tt>, a file-based logging handler is
+created for the application and attached to the logger with the name
+given in <tt class="docutils literal">log_name</tt>. Defaults to <tt class="docutils literal">False</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_name</tt>: Logger name. &quot;%name&quot; is substituted with the
+application name. Defaults to &quot;%name&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_filename</tt>: Default filepath for the application's log (the
+user can override the log path). &quot;%name&quot; is subsituted with the
+application name. Defaults to &quot;~/%name.log&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_level</tt>: Default logging level for the application (user user
+can override the log level). Defaults to <tt class="docutils literal">logging.INFO</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_format</tt>: The string to use for the <tt class="docutils literal">logging.Formatter</tt> for
+the handler. Defaults to &quot;%(asctime)s %(levelname)s %(message)s&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_handler_class</tt>: File-based handler class to use. Defaults to
+<tt class="docutils literal">logging.handlers.RotatingFileHandler</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_handler_kwargs</tt>: Dictionary to use as keyword arguments when
+constructing <tt class="docutils literal">log_handler_class</tt>. <tt class="docutils literal">filename</tt> will always be
+added to this dictionary. Defaults to:</p>
+<pre class="literal-block">
+{'maxBytes': 10 * 1024 * 1024,
+ 'backupCount': 10,
+ 'delay': True}
+</pre>
+</li>
+<li><p class="first"><tt class="docutils literal">log_conf</tt>: If <tt class="docutils literal">True</tt>, the user can configure logging via config
+files (assuming <tt class="docutils literal">conf_enabled=True</tt>). Defaults to <tt class="docutils literal">True</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_conf_section</tt>: The section of the configuration file containing
+log filepath and log level options. &quot;%name&quot; is substituted with the
+application name. Defaults to &quot;%name&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_conf_filename_option</tt>: Name of the option inside
+<tt class="docutils literal">log_conf_section</tt> where the log filepath is specified. &quot;%name&quot; is
+substituted with the application name. Defaults to &quot;log_filename&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_conf_level_option</tt>: Name of the option inside
+<tt class="docutils literal">log_conf_section</tt> where the log filepath is specified. &quot;%name&quot; is
+substituted with the application name. Defaults to &quot;log_level&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_opts</tt>: If <tt class="docutils literal">True</tt> and logging is enabled, subcommands will
+accept <tt class="docutils literal"><span class="pre">--log-filename</span></tt> and <tt class="docutils literal"><span class="pre">--log-level</span></tt> options which can be
+used to configure logging on a per-call basis. Defaults to <tt class="docutils literal">True</tt>
+(ie. &quot;on&quot; if logging is enabled).</p>
+</li>
+<li><p class="first"><tt class="docutils literal">opts</tt>: Application-wide options. Can be an <tt class="docutils literal">optparse.Option</tt> or
+sequence of options.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">console_opts</tt>: Whether <tt class="docutils literal"><span class="pre">-v/-q/--no-color</span></tt> are enabled. Defaults
+to <tt class="docutils literal">False</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">conf_opts</tt>: If <tt class="docutils literal">conf_enabled=True</tt> and this is <tt class="docutils literal">True</tt>, the
+user can set the configuration file via the <tt class="docutils literal"><span class="pre">--config</span></tt>
+option. Defaults to <tt class="docutils literal">True</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">log_opts</tt>: If <tt class="docutils literal">log_enabled=True</tt> and this is <tt class="docutils literal">True</tt>, the user
+can configure the log filename and log level via <tt class="docutils literal"><span class="pre">--log-filename</span></tt>
+and <tt class="docutils literal"><span class="pre">--log-level</span></tt> options.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">shell_command</tt>: If <tt class="docutils literal">True</tt>, provide the <tt class="docutils literal">shell</tt> command for
+this application. Defaults to <tt class="docutils literal">True</tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">shell_alias</tt>: String or list of strings for the <tt class="docutils literal">shell</tt>
+command's alias. Defaults to &quot;sh&quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">shell_prompt</tt>: Prompt for the shell. &quot;%name&quot; is substituted with
+the application name. Defaults to &quot;(%name)&gt; &quot;.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">shell_clear_command</tt>: If <tt class="docutils literal">shell_command=True</tt> and this is
+<tt class="docutils literal">True</tt>, add the <tt class="docutils literal">clear</tt> command to the command shell.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="appendix-decorator-arguments">
+<h1>Appendix: Decorator Arguments</h1>
+<ul class="simple">
+<li><tt class="docutils literal">alias</tt>: Optional string or list of strings to use as aliases to
+this command. The &quot;canonical&quot; name is the name of the
+function. Defaults to <tt class="docutils literal">None</tt> (no aliases).</li>
+<li><tt class="docutils literal">usage</tt>: Usage string for help. The string &quot;&lt;app-name&gt; &lt;command-name&gt; &quot; is
+prepended to this string. Defaults to &quot;[options]&quot;.</li>
+<li><tt class="docutils literal">shell</tt>: Boolean indicating whether the command should be
+available in the command shell. Defaults to <tt class="docutils literal">True</tt>.</li>
+<li><tt class="docutils literal">cli</tt>: Boolean indicating whether the command should be available
+from the command line. Defaults to <tt class="docutils literal">True</tt>.</li>
+<li><tt class="docutils literal">opts</tt>: Extra options for this command.</li>
+</ul>
+<p>You can also selectively disable any of the automatically added
+options. Note that this generally is not a good idea as that option
+becomes &quot;global-except-for-that-one-command&quot;, which is annoying. Pass
+<tt class="docutils literal">False</tt> to any one of these arguments to disable the associated
+options:</p>
+<ul class="simple">
+<li><tt class="docutils literal">console_opts</tt>: -v/--verbose, -q/--quiet, --no-color</li>
+<li><tt class="docutils literal">version_opts</tt>: --version</li>
+<li><tt class="docutils literal">help_opts</tt>: -h/--help</li>
+<li><tt class="docutils literal">conf_opts</tt>: --config</li>
+<li><tt class="docutils literal">log_opts</tt>: --log-filename, --log-level</li>
+<li><tt class="docutils literal">app_opts</tt>: Application-wide options.</li>
+</ul>
+<p>In the extreme case where you want to turn off all these options, you
+can pass <tt class="docutils literal">global_opts=False</tt>. With <tt class="docutils literal">global_opts=False</tt>, you can
+selectively add the options back in by setting the associated
+arguments to <tt class="docutils literal">True</tt>. For example, to disable all arguments except
+<tt class="docutils literal"><span class="pre">-h/--help</span></tt>, the decorator would be:</p>
+<pre class="literal-block">
+ &#64;downloader(console_opts=False, version_opts=False, conf_opts=False,
+             log_opts=False, app_opts=False)
+
+# or
+
+&#64;downloader(global_opts=False, help_opts=True)
+</pre>
+</div>
+<div class="section" id="appendix-terminal-colors">
+<h1>Appendix: Terminal Colors</h1>
+<p>These are the colors in the <tt class="docutils literal">clik.Console</tt> library:</p>
+<ul class="simple">
+<li>bold</li>
+<li>faint</li>
+<li>standout</li>
+<li>underline</li>
+<li>blink</li>
+<li>black</li>
+<li>darkgray</li>
+<li>darkred</li>
+<li>red</li>
+<li>darkgreen</li>
+<li>green</li>
+<li>brown</li>
+<li>yellow</li>
+<li>darkblue</li>
+<li>blue</li>
+<li>purple</li>
+<li>fuchsia</li>
+<li>turqoise</li>
+<li>teal</li>
+<li>lightgray</li>
+<li>white</li>
+</ul>
+<p><tt class="docutils literal">clik.Console</tt> is based on Georg Brandl's Sphinx project's <tt class="docutils literal">console.py</tt>.</p>
 <table class="docutils footnote" frame="void" id="id3" rules="none">
 <colgroup><col class="label" /><col /></colgroup>
 <tbody valign="top">

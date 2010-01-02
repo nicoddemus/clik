@@ -3,7 +3,7 @@ from distutils.core import setup
 
 setup(
     name="clik",
-    version="0.2",
+    version="0.3",
     url='http://github.com/jds/clik',
     author='Joe Strickler',
     author_email='jd.strickler@gmail.com',
