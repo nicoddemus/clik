@@ -1,0 +1,254 @@
+
+======
+ Clik
+======
+
+*Note: the README is a work-in-progress.*
+
+Clik (CLI Kit) requires Python 2.6 [#]_.
+
+Clik provides glue code for subcommand-style CLI applications. It does
+command dispatch and option parsing. It provides
+a terminal output helper connected to the standard ``-v/-q`` flags. It
+transparently gives your application a command shell. If you want,
+clik will set up a ConfigParser instance and read in ini-style config files for
+you. If your application wants logging, clik can set up a logging
+handler for you as well.
+
+Clik is one module and less than a thousand lines of code, so it's
+easy to read, modify and include in your projects.
+
+This README is an introduction, tutorial and the documentation wrapped
+in one. It shows the development of a simple app named ``downloader``,
+which downloads content to a local directory (it will also have a
+pretty sweet "hello world" command). You can check out the
+example code, which basically matches the development of the code in
+this file, from git://github.com/jds/downloader. The output is
+included in the repository files; if you're not interested in my
+commentary you can simply step through the history.
+
+
+
+Installation
+============
+
+Setuptools::
+
+    easy_install clik
+
+Or download the latest version from http://pypi.python.org/clik,
+extract the tarball and run ``python setup.py install``.
+
+The git repository is at git://github.com/jds/clik.
+
+
+
+The Basics
+==========
+
+To start writing an application, you'll create an instance of ``clik.App`` and
+call its ``main`` method::
+
+    import clik
+
+    downloader = clik.App('downloader')
+
+    if __name__ == '__main__':
+        downloader.main()
+
+At this point you have a working application::
+
+    $ python downloader.py
+    downloader
+    Basic usage: downloader <subcommand> [options]
+
+    shell, sh
+        A command shell for this application.
+
+    Run downloader <command> -h for command help
+
+Typically you'll also want to provide a version and short summary::
+
+    downloader = clik.App('downloader',
+                          version='1.0',
+                          description='Manages downloads in a local directory.')
+
+
+    $ python downloader.py
+    downloader 1.0 -- Manages downloads in a local directory.
+    Basic usage: downloader <subcommand> [options]
+    # same output as before
+    
+    $ python downloader.py --version
+    1.0
+
+Add subcommands by defining a function and decorating it with the app
+instance. The command name will be the function name::
+
+    @downloader
+    def hello_world():
+        print 'Hello, world!'
+
+
+    $ python downloader.py 
+    downloader 1.0 -- Manages downloads in a local directory.
+    Basic usage: downloader <subcommand> [options]
+    
+    hello_world
+        No description.
+    
+    shell, sh
+        A command shell for this application.
+    
+    Run downloader <command> -h for command help
+    
+
+    $ python downloader.py hello_world -h
+    Usage: downloader hello_world [options]
+    
+    No description.
+    
+    Options:
+      --version   show program's version number and exit
+      -h, --help  show this help message and exit
+    
+    
+    $ python downloader.py hello_world
+    Hello, world!
+
+Help is taken from the function's docstring, if it exists. The
+docstring should be formatted conventionally [#]_::
+
+      @downloader
+      def hello_world():
+          """
+          Says hello to the world.
+
+          For nontrivial commands, this text right here would be a
+          more thorough description of what the command does and how
+          to use it. For hello_world, you'd typically just use a
+          one-liner with no extended help.
+          """
+
+    $ python downloader.py 
+    downloader 1.0 -- Manages downloads in a local directory.
+    Basic usage: downloader <subcommand> [options]
+    
+    hello_world
+        Says hello to the world.
+    
+    shell, sh
+        A command shell for this application.
+    
+    Run downloader <command> -h for command help
+    
+
+    $ python downloader.py hello_world -h
+    Usage: downloader hello_world [options]
+    
+    Says hello to the world.
+    
+    Options:
+      --version   show program's version number and exit
+      -h, --help  show this help message and exit
+    
+    For nontrivial commands, this text right here would be a
+    more thorough description of what the command does and how
+    to use it. For hello_world, you'd typically just use a
+    one-liner with no extended help.
+
+``hello_world`` is aptly named but a bit painful to type over and
+over again. Adding shorter names is easy::
+
+    @downloader(alias='hw')
+    def hello_world():
+        print 'Hello, world!'
+
+    # or
+
+    @downloader(alias=['hw', 'hllwrld'])
+    def hello_world():
+        print 'Hello, world!'
+
+
+    $ python downloader.py 
+    downloader 1.0 -- Manages downloads in a local directory.
+    Basic usage: downloader <subcommand> [options]
+    
+    hello_world, hw, hllwrld
+        Says hello to the world.
+    
+    shell, sh
+        A command shell for this application.
+    
+    Run downloader <command> -h for command help
+    
+
+    $ python downloader.py hw
+    Hello, world!
+
+    $ python downloader.py hllwrld
+    Hello, world!
+
+Of course, clik makes sure your names don't run over each other::
+
+    @downloader
+    def hw():
+        print 'You will not see me because the script will not run!'
+
+    
+    $ python downloader.py
+    Traceback (most recent call last):
+      File "downloader.py", line 22, in <module>
+        @downloader
+      File "/Users/jds/.virtualenvs/clik-tutorial/lib/python2.6/site-packages/clik.py", line 55, in __call__
+        self.add(maybe_fn)
+      File "/Users/jds/.virtualenvs/clik-tutorial/lib/python2.6/site-packages/clik.py", line 199, in add
+        existing_fn.__module__, existing_fn.__name__))
+    ValueError: Command name hw from __main__.hw conflicts with name defined in __main__.hello_world
+
+This is typical of much of the interaction with clik: start
+with the least amount of code necessary, extend application-wide
+functionality by providing arguments to the app constructor and
+configure subcommand-level functionality by providing arguments to the
+decorator.
+
+
+
+.. [#] 2.5 compatibility is the first item on the TODO list after this
+       README. Nitty-gritty: The only 2.6 feature clik uses is the ``delay``
+       argument to ``logging.RotatingFileHandler``. This can either be
+       simulated by a wrapper or simply omitted (the user can
+       configure the logging handler and arguments, anyway). As for
+       <2.5, I don't know.
+
+
+.. [#] Specifically, clik can properly handle docstrings that consist
+       of one line::
+
+           def hello_world():
+               """Says hello to the world."""
+
+           def hello_world():
+               """
+               Says hello to the world.
+               """
+
+       Docstrings with more information should have a one line
+       description followed by a blank line followed by the extended
+       info::
+
+           def hello_world():
+               """
+               Says hello to the world.
+
+               If there were more to say about a hello world function,
+               this is where it would go. The indentation of the first
+               line after the short description is used as the
+               baseline for the rest of the text. Otherwise,
+               formatting is preserved. This is unlike optparse's
+               handling of `epilog`, which annoyingly reformats the
+               input its given. That makes it hard to write
+               clearly-formatted examples, which is exactly
+               what you want to do in the "more help" text!
+               """
