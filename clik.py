@@ -209,7 +209,7 @@ class App(object):
                    conf_envvar_name='%NAME_CONFIG',
                    configparser_class=ConfigParser.SafeConfigParser,
                    log_enabled=False, log_name='%name',
-                   log_filename='/var/log/%name.log', log_level=logging.INFO,
+                   log_filename='~/%name.log', log_level=logging.INFO,
                    log_format='%(asctime)s %(levelname)s %(message)s',
                    log_handler_class=logging.handlers.RotatingFileHandler,
                    log_handler_kwargs={'maxBytes': 10 * 1024 * 1024,
