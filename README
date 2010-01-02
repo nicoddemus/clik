@@ -34,7 +34,7 @@ Setuptools::
 
     easy_install clik
 
-Or download the latest version from http://pypi.python.org/clik,
+Or download the latest version from http://pypi.python.org/pypi/clik,
 extract the tarball and run ``python setup.py install``.
 
 The git repository is at git://github.com/jds/clik.
