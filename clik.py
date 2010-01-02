@@ -461,7 +461,7 @@ def shell(app):
             raise StopIteration
         
         def help_exit(self):
-            print app.interpolate_name('Exits the %name shell')
+            print app.sub_name('Exits the %name shell')
             
         def do_quit(self, args):
             self.do_exit(args)
