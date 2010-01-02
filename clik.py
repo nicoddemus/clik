@@ -623,7 +623,7 @@ class Console(object):
     color_codes = property(_create_color_map)
     markup_re = property(_create_markup_re)
 
-    def emit(self, message, verbosity=1, newlines=1):
+    def emit(self, message, verbosity=1, newlines=1, stream=sys.stdout):
         if self.verbosity >= verbosity:
             message = str(message)
             if self.color:
@@ -664,12 +664,12 @@ class Console(object):
                 # No color, just strip that information from the message
                 out = self.markup_re.sub('', message)
 
-            sys.stdout.write(out+('\n' * newlines))
-            sys.stdout.flush()
+            stream.write(out+('\n' * newlines))
+            stream.flush()
 
     def error(self, message, newlines=1):
         message = str(message)
-        sys.stderr.write(message+('\n' * newlines))
+        self.emit(message, verbosity=0, newlines=newlines, stream=sys.stderr)
 
     def quiet(self, message='', newlines=1):
         return self.emit(message, verbosity=0, newlines=newlines)
