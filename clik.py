@@ -547,11 +547,14 @@ def expand_path(path):
 
 
 class Console(object):
-    markup_re = re.compile(r'<(\w+|/)>')
-    
     def __init__(self, verbosity=1, color=None):
         self.verbosity = verbosity
         self.color = color
+
+    def _create_markup_re(self):
+        markup_re = re.compile(r'<(%s|/)>' % ('|'.join(self.color_codes)))
+        self.__class__.markup_re = markup_re
+        return markup_re
 
     def _set_verbosity(self, value):
         if value not in (0, 1, 2):
@@ -618,6 +621,7 @@ class Console(object):
     verbosity = property(_get_verbosity, _set_verbosity)
     color = property(_get_color, _set_color)
     color_codes = property(_create_color_map)
+    markup_re = property(_create_markup_re)
 
     def emit(self, message, verbosity, newlines=1):
         if self.verbosity >= verbosity:
@@ -646,12 +650,8 @@ class Console(object):
                             for name in stack:
                                 out += self.color_codes[name]
                     else:
-                        try:
-                            out += self.color_codes[token]
-                            stack.append(token)
-                        except KeyError:
-                            # Whoops! Not a colorcode token, emit as given.
-                            out += '<%s>' % token
+                        out += self.color_codes[token]
+                        stack.append(token)
 
                     match = self.markup_re.search(remaining)
 
@@ -662,9 +662,6 @@ class Console(object):
                     out += self.color_codes['reset']
             else:
                 # No color, just strip that information from the message
-                # BUG: consider string: '<html> is a tag.' see try/except
-                #      KeyError a few lines back (a hack around this issue
-                #      when color is on).
                 out = self.markup_re.sub('', message)
 
             sys.stdout.write(out+('\n' * newlines))
