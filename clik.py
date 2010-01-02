@@ -306,7 +306,7 @@ class App(object):
             help_text = 'Path to config file (will read '+(', '.join(paths))
             if self.conf_envvar_name:
                 help_text += ', $'+self.sub_name(self.conf_envvar_name)
-            help_text += ', then this value, if set'
+            help_text += ', then this value, if set)'
 
             opts += (opt('--config', dest='conf_path', action='store',
                          default=None, help=help_text),)
@@ -623,7 +623,7 @@ class Console(object):
     color_codes = property(_create_color_map)
     markup_re = property(_create_markup_re)
 
-    def emit(self, message, verbosity, newlines=1):
+    def emit(self, message, verbosity=1, newlines=1):
         if self.verbosity >= verbosity:
             message = str(message)
             if self.color:
