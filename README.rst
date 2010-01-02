@@ -18,8 +18,7 @@ easy to read, modify and include in your projects.
 
 This README is an introduction, tutorial and the documentation wrapped
 in one. It shows the development of a simple app named ``downloader``,
-which downloads content to a local directory (it will also have a
-pretty sweet "hello world" command). You can check out the
+which downloads content to a local directory. You can check out the
 example code, which basically matches the development of the code in
 this file, from git://github.com/jds/downloader. The output is
 included in the repository files; if you're not interested in my
@@ -663,7 +662,7 @@ app constructor and specify the defaults::
 
 ``conf_defaults`` should be a dictionary of dictionaries representing
 the default sections and options. It can also be a string pointing to
-a module with a similarly-defined ``conf_defaults`` attribute. E.g.,
+a module with a similarly-defined ``conf_defaults`` attribute. That is,
 we could create a file "downloader_conf.py", define ``conf_defaults``
 in that file, and use ``clik.App(conf_defaults='downloader_conf')``.
 
@@ -778,7 +777,7 @@ methods::
     console.v('Alias for console.verbose()')
     console.error('Always emitted to stderr')
 
-By default, a single newline is emitted after the string, but you can
+By default, a single newline is emitted after the string. You can
 change that using the ``newlines`` argument::
 
     console.n('Doing something...', newlines=0)
@@ -1165,7 +1164,7 @@ Appendix: ``clik.App`` Constructor Arguments
   used to configure logging on a per-call basis. Defaults to ``True``
   (ie. "on" if logging is enabled).
 * ``opts``: Application-wide options. Can be an ``optparse.Option`` or
-  sequence of options.
+  sequence of options. Defaults to ``None``.
 * ``console_opts``: Whether ``-v/-q/--no-color`` are enabled. Defaults
   to ``False``.
 * ``conf_opts``: If ``conf_enabled=True`` and this is ``True``, the
@@ -1177,7 +1176,7 @@ Appendix: ``clik.App`` Constructor Arguments
 * ``shell_command``: If ``True``, provide the ``shell`` command for
   this application. Defaults to ``True``.
 * ``shell_alias``: String or list of strings for the ``shell``
-  command's alias. Defaults to "sh".
+  command's alias. Defaults to ``sh``.
 * ``shell_prompt``: Prompt for the shell. "%name" is substituted with
   the application name. Defaults to "(%name)> ".
 * ``shell_clear_command``: If ``shell_command=True`` and this is

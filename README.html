@@ -319,8 +319,7 @@ handler for you as well.</p>
 easy to read, modify and include in your projects.</p>
 <p>This README is an introduction, tutorial and the documentation wrapped
 in one. It shows the development of a simple app named <tt class="docutils literal">downloader</tt>,
-which downloads content to a local directory (it will also have a
-pretty sweet &quot;hello world&quot; command). You can check out the
+which downloads content to a local directory. You can check out the
 example code, which basically matches the development of the code in
 this file, from git://github.com/jds/downloader. The output is
 included in the repository files; if you're not interested in my
@@ -331,7 +330,7 @@ commentary you can simply step through the history.</p>
 <pre class="literal-block">
 easy_install clik
 </pre>
-<p>Or download the latest version from <a class="reference external" href="http://pypi.python.org/clik">http://pypi.python.org/clik</a>,
+<p>Or download the latest version from <a class="reference external" href="http://pypi.python.org/pypi/clik">http://pypi.python.org/pypi/clik</a>,
 extract the tarball and run <tt class="docutils literal">python setup.py install</tt>.</p>
 <p>The git repository is at git://github.com/jds/clik.</p>
 </div>
@@ -943,7 +942,7 @@ downloader = clik.App('downloader',
 </pre>
 <p><tt class="docutils literal">conf_defaults</tt> should be a dictionary of dictionaries representing
 the default sections and options. It can also be a string pointing to
-a module with a similarly-defined <tt class="docutils literal">conf_defaults</tt> attribute. E.g.,
+a module with a similarly-defined <tt class="docutils literal">conf_defaults</tt> attribute. That is,
 we could create a file &quot;downloader_conf.py&quot;, define <tt class="docutils literal">conf_defaults</tt>
 in that file, and use <tt class="docutils literal"><span class="pre">clik.App(conf_defaults='downloader_conf')</span></tt>.</p>
 <p>When conf is enabled, subcommands can take the <tt class="docutils literal">conf</tt> argument,
@@ -1061,7 +1060,7 @@ console.verbose('Emitted only if the user passes -v')
 console.v('Alias for console.verbose()')
 console.error('Always emitted to stderr')
 </pre>
-<p>By default, a single newline is emitted after the string, but you can
+<p>By default, a single newline is emitted after the string. You can
 change that using the <tt class="docutils literal">newlines</tt> argument:</p>
 <pre class="literal-block">
 console.n('Doing something...', newlines=0)
@@ -1474,7 +1473,7 @@ used to configure logging on a per-call basis. Defaults to <tt class="docutils l
 (ie. &quot;on&quot; if logging is enabled).</p>
 </li>
 <li><p class="first"><tt class="docutils literal">opts</tt>: Application-wide options. Can be an <tt class="docutils literal">optparse.Option</tt> or
-sequence of options.</p>
+sequence of options. Defaults to <tt class="docutils literal">None</tt>.</p>
 </li>
 <li><p class="first"><tt class="docutils literal">console_opts</tt>: Whether <tt class="docutils literal"><span class="pre">-v/-q/--no-color</span></tt> are enabled. Defaults
 to <tt class="docutils literal">False</tt>.</p>
@@ -1491,7 +1490,7 @@ and <tt class="docutils literal"><span class="pre">--log-level</span></tt> optio
 this application. Defaults to <tt class="docutils literal">True</tt>.</p>
 </li>
 <li><p class="first"><tt class="docutils literal">shell_alias</tt>: String or list of strings for the <tt class="docutils literal">shell</tt>
-command's alias. Defaults to &quot;sh&quot;.</p>
+command's alias. Defaults to <tt class="docutils literal">sh</tt>.</p>
 </li>
 <li><p class="first"><tt class="docutils literal">shell_prompt</tt>: Prompt for the shell. &quot;%name&quot; is substituted with
 the application name. Defaults to &quot;(%name)&gt; &quot;.</p>
