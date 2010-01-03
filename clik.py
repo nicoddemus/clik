@@ -8,7 +8,6 @@ import inspect
 import optparse
 import subprocess
 import ConfigParser
-
 import logging
 import logging.handlers
 
@@ -212,9 +211,8 @@ class App(object):
                    log_filename='~/%name.log', log_level=logging.INFO,
                    log_format='%(asctime)s %(levelname)s %(message)s',
                    log_handler_class=logging.handlers.RotatingFileHandler,
-                   log_handler_kwargs={'maxBytes': 10 * 1024 * 1024,
-                                       'backupCount': 10, 'delay': True},
-                   log_conf=True, log_conf_section='%name',
+                   log_handler_kwargs=None, log_conf=True,
+                   log_conf_section='%name',
                    log_conf_filename_option='log_filename',
                    log_conf_level_option='log_level', opts=None,
                    console_opts=False, conf_opts=True, log_opts=True,
@@ -237,11 +235,18 @@ class App(object):
         self.log_level = log_level
         self.log_format = log_format
         self.log_handler_class = log_handler_class
-        self.log_handler_kwargs = log_handler_kwargs
         self.log_conf = log_conf
         self.log_conf_section = log_conf_section
         self.log_conf_filename_option = log_conf_filename_option
         self.log_conf_level_option = log_conf_level_option
+
+        if log_handler_kwargs is None:
+            log_handler_kwargs = {'maxBytes': 10 * 1024 * 1024,
+                                  'backupCount': 10}
+            major, minor = sys.version_info[:2]
+            if major >= 3 or (major == 2 and minor >= 6):
+                log_handler_kwargs['delay'] = True
+        self.log_handler_kwargs = log_handler_kwargs
 
         self.opts = opts
         self.console_opts = console_opts

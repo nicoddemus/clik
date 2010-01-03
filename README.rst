@@ -3,7 +3,7 @@
  Clik
 ======
 
-Clik (CLI Kit) requires Python 2.6 [#]_.
+Clik (CLI Kit) requires Python 2.5 [#]_.
 
 Clik provides glue code for subcommand-style CLI applications. It does
 command dispatch and option parsing. It provides
@@ -1253,13 +1253,8 @@ These are the colors in the ``clik.Console`` library:
 
 ``clik.Console`` is based on Georg Brandl's Sphinx project's ``console.py``.
 
-.. [#] 2.5 compatibility is the first item on the TODO list after this
-       README. Nitty-gritty: The only 2.6 feature clik uses is the ``delay``
-       argument to ``logging.RotatingFileHandler``. This can either be
-       simulated by a wrapper or simply omitted (the user can
-       configure the logging handler and arguments, anyway). As for
-       <2.5, I don't know.
-
+.. [#] I don't have a machine handy to test on anything earlier. I'll
+       let you know once I get around to it.
 
 .. [#] Specifically, clik can properly handle docstrings that consist
        of one line::
