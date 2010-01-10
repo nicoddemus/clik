@@ -16,21 +16,6 @@ class DummyOutput(object):
     def clear(self):
         self.buffer = ''
 
-    def __contains__(self, s):
-        return s in self.buffer
-
-    def __eq__(self, other):
-        return other == self.buffer
-
-    def __ne__(self, other):
-        return other != self.buffer
-
-    def __str__(self):
-        return self.buffer
-
-    def __repr__(self):
-        return self.buffer.replace('\n', '\\n')
-
 
 def capture_output(fn):
     orig = sys.stdout, sys.stderr

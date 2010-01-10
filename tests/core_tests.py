@@ -35,13 +35,13 @@ def version_app():
 
 
 def noversion_app():
-    noversion = clik.App('versiontest')
+    app = clik.App('versiontest')
 
     def cmd():
         pass
-    noversion(cmd)
+    app(cmd)
 
-    return noversion
+    return app
 
 
 def help_app(version=None):
