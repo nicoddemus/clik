@@ -69,7 +69,7 @@ class App(object):
             break
         else:
             # No subcommand name given.
-            if '--version' in argv:
+            if '--version' in argv and self.version:
                 print '0' if self.version is None else self.version
             else:
                 self.print_help()
