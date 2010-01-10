@@ -3,3 +3,5 @@ README
 README.html
 dist/
 build/
+clik.egg-info/
+.coverage

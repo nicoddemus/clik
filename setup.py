@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 
 setup(
@@ -8,4 +8,5 @@ setup(
     author='Joe Strickler',
     author_email='jd.strickler@gmail.com',
     description='Library for creating subcommand-style CLI applications.',
-    py_modules=['clik'])
+    packages=find_packages(),
+    extras_require={'dev': ['nose==0.11.1', 'coverage==3.2']})
