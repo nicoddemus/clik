@@ -148,8 +148,7 @@ class App(object):
         return 1
 
     def add(self, fn, alias=None, usage=None, shell=True, cli=True, opts=None,
-            global_opts=True, console_opts=None, conf_opts=None, log_opts=None,
-            app_opts=None):
+            console_opts=True, conf_opts=True, log_opts=True, app_opts=True):
         """Adds a function as a subcommand to the application."""
         names = [fn.__name__]
         if alias is None:
@@ -186,9 +185,8 @@ class App(object):
 
         meta = {'names': names, 'usage': usage, 'shell': shell, 'cli': cli,
                 'description': description, 'help': help, 'opts': opts,
-                'global_opts': global_opts, 'console_opts': console_opts,
-                'conf_opts': conf_opts, 'log_opts': log_opts,
-                'app_opts': app_opts}
+                'console_opts': console_opts,'conf_opts': conf_opts,
+                'log_opts': log_opts, 'app_opts': app_opts}
 
         # Make sure none of the existing commands share a name.
         for name in names:
@@ -273,23 +271,13 @@ class App(object):
             else:
                 opts += tuple(meta['opts'])
 
-        # Aside from the command opts, we have the app_opts, console_opts,
-        # conf_opts and log_opts. When global_opts is True, we want these to
-        # default to True if not set (None). When global_opts is False we want
-        # them to default to False.
-        def wants_opts(key):
-            key += '_opts'
-            if meta[key] is None:
-                return True if meta['global_opts'] else False
-            return bool(meta[key])
-
-        if wants_opts('app') and self.opts is not None:
+        if meta['app_opts'] and self.opts is not None:
             if isinstance(self.opts, optparse.Option):
                 opts += (self.opts,)
             else:
                 opts += tuple(self.opts)
 
-        if wants_opts('console') and self.console_opts:
+        if meta['console_opts'] and self.console_opts:
             opts += (
                 opt('-v', '--verbose', dest='console_verbosity',
                     action='store_const', const=2, default=1,
@@ -302,7 +290,7 @@ class App(object):
                     help='Do not colorize output')
             )
 
-        if wants_opts('conf') and self.conf_enabled and self.conf_opts:
+        if meta['conf_opts'] and self.conf_enabled and self.conf_opts:
             # Figure out the list of paths so we can display that in the -h
             # output.
             if isinstance(self.conf_locations, types.StringTypes):
@@ -319,7 +307,7 @@ class App(object):
             opts += (opt('--config', dest='conf_path', action='store',
                          default=None, help=help_text),)
 
-        if wants_opts('log') and self.log_enabled and self.log_opts:
+        if meta['log_opts'] and self.log_enabled and self.log_opts:
             level_choices = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
             opts += (
                 opt('--log-filename', dest='log_filename', action='store',
