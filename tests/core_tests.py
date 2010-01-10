@@ -66,6 +66,17 @@ def help_app(version=None):
     return app
 
 
+def arg_app():
+    app = clik.App('argtest')
+
+    def echo(args, argv):
+        print ' '.join(args)
+        print ' '.join(argv)
+    app(echo)
+
+    return app
+
+
 def test_boilerplate_noargs():
     boilerplate.main(argv=[])
     assert_stdout("""boilerplate
@@ -74,7 +85,7 @@ Basic usage: boilerplate <subcommand> [options]
 shell, sh
     A command shell for this application.
 
-Run boilerplate <command> -h for command help
+`boilerplate <command> -h` for command help
 """);
     assert_stderr('')
 test_boilerplate_noargs = capture_output(test_boilerplate_noargs)
@@ -88,7 +99,7 @@ Basic usage: boilerplate <subcommand> [options]
 shell, sh
     A command shell for this application.
 
-Run boilerplate <command> -h for command help
+`boilerplate <command> -h` for command help
 """);
     assert_stderr('error: unknown command foo\n')
 test_boilerplate_invalid_command = capture_output(test_boilerplate_invalid_command)
@@ -103,7 +114,8 @@ Basic usage: versiontest <subcommand> [options]
 shell, sh
     A command shell for this application.
 
-Run versiontest <command> -h for command help
+`versiontest <command> -h` for command help
+`versiontest --version` prints version and exits
 """);
     assert_stderr('')
 test_app_version_metadata = capture_output(test_app_version_metadata)
@@ -119,7 +131,7 @@ Basic usage: descriptiontest <subcommand> [options]
 shell, sh
     A command shell for this application.
 
-Run descriptiontest <command> -h for command help
+`descriptiontest <command> -h` for command help
 """);
     assert_stderr('')
 test_app_description_metadata = capture_output(test_app_description_metadata)
@@ -136,7 +148,8 @@ Basic usage: combinedtest <subcommand> [options]
 shell, sh
     A command shell for this application.
 
-Run combinedtest <command> -h for command help
+`combinedtest <command> -h` for command help
+`combinedtest --version` prints version and exits
 """);
     assert_stderr('')
 test_app_combined_metadata = capture_output(test_app_combined_metadata)
@@ -212,13 +225,6 @@ def test_version_option_with_version_set():
 test_version_option_with_version_set = capture_output(test_version_option_with_version_set)
 
 
-def test_version_option_to_subcommand_with_version_set():
-    version_app().main(argv=['cmd', '--version'])
-    assert_stdout('1.0\n')
-    assert_stderr('')
-test_version_option_to_subcommand_with_version_set = capture_output(test_version_option_to_subcommand_with_version_set)
-
-
 def test_version_option_with_version_unset():
     noversion_app().main(argv=['--version'])
     assert_stdout("""versiontest
@@ -230,7 +236,7 @@ cmd
 shell, sh
     A command shell for this application.
 
-Run versiontest <command> -h for command help
+`versiontest <command> -h` for command help
 """)
     assert_stderr('')
 test_version_option_with_version_unset = capture_output(test_version_option_with_version_unset)
@@ -263,7 +269,7 @@ oneline_help
 shell, sh
     A command shell for this application.
 
-Run helptest <command> -h for command help
+`helptest <command> -h` for command help
 """);
     assert_stderr('')
 test_help_subcommand_list = capture_output(test_help_subcommand_list)
@@ -276,28 +282,12 @@ def test_help_one_liner():
 A short description of the command.
 
 Options:
-  --version   show program's version number and exit
   -h, --help  show this help message and exit
 
 
 """)
     assert_stderr('')
 test_help_one_liner = capture_output(test_help_one_liner)
-
-
-def test_help_version_unset():
-    help_app().main(argv=['oneline_help', '-h'])
-    assert_stdout("""Usage: helptest oneline_help [options]
-
-A short description of the command.
-
-Options:
-  -h, --help  show this help message and exit
-
-
-""")
-    assert_stderr('')
-test_help_version_unset = capture_output(test_help_version_unset)
 
 
 def test_help_multiline():
@@ -329,3 +319,10 @@ Options:
 """)
     assert_stderr('')
 test_help_alias = capture_output(test_help_alias)
+
+
+def test_args():
+    arg_app().main(argv=['echo', 'foo', 'bar', 'baz'])
+    assert_stdout('foo bar baz\necho foo bar baz\n')
+    assert_stderr('')
+test_args = capture_output(test_args)

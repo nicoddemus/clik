@@ -13,9 +13,6 @@ class DummyOutput(object):
     def write(self, s):
         self.buffer += s
 
-    def clear(self):
-        self.buffer = ''
-
 
 def capture_output(fn):
     orig = sys.stdout, sys.stderr
@@ -59,8 +56,8 @@ def assert_string(expected, actual):
     else:
         passed = False
         message = 'Strings did not match\n'
-        diff = list(difflib.unified_diff(actual.split('\n'),
-                                         expected.split('\n'),
+        diff = list(difflib.unified_diff(expected.split('\n'),
+                                         actual.split('\n'),
                                          fromfile='expected',
                                          tofile='actual'))
         message += ''.join(diff[:2])+'\n'.join(diff[2:])

@@ -69,8 +69,8 @@ class App(object):
             break
         else:
             # No subcommand name given.
-            if '--version' in argv and self.version:
-                print '0' if self.version is None else self.version
+            if argv == ['--version'] and self.version:
+                print self.version
             else:
                 self.print_help()
             return 1
@@ -140,12 +140,16 @@ class App(object):
                 print ', '.join(data['names'])
                 print '   ', data['description']
                 print
-        print 'Run %s <command> -h for command help' % self.name
+
+        print '`%s <command> -h` for command help' % self.name
+        if self.version:
+            print '`%s --version` prints version and exits' % self.name
+
         return 1
 
     def add(self, fn, alias=None, usage=None, shell=True, cli=True, opts=None,
-            global_opts=True, console_opts=None, version_opts=None,
-            help_opts=None, conf_opts=None, log_opts=None, app_opts=None):
+            global_opts=True, console_opts=None, conf_opts=None, log_opts=None,
+            app_opts=None):
         """Adds a function as a subcommand to the application."""
         names = [fn.__name__]
         if alias is None:
@@ -183,7 +187,6 @@ class App(object):
         meta = {'names': names, 'usage': usage, 'shell': shell, 'cli': cli,
                 'description': description, 'help': help, 'opts': opts,
                 'global_opts': global_opts, 'console_opts': console_opts,
-                'version_opts': version_opts, 'help_opts': help_opts,
                 'conf_opts': conf_opts, 'log_opts': log_opts,
                 'app_opts': app_opts}
 
@@ -271,9 +274,9 @@ class App(object):
                 opts += tuple(meta['opts'])
 
         # Aside from the command opts, we have the app_opts, console_opts,
-        # conf_opts, log_opts, help_opts and version_opts. When global_opts
-        # is True, we want these to default to True if not set (None). When
-        # global_opts is False we want them to default to False.
+        # conf_opts and log_opts. When global_opts is True, we want these to
+        # default to True if not set (None). When global_opts is False we want
+        # them to default to False.
         def wants_opts(key):
             key += '_opts'
             if meta[key] is None:
@@ -335,16 +338,11 @@ class App(object):
         usage += '|'.join(meta['names'])+' '
         usage +=  '[options]' if meta['usage'] is None else meta['usage']
 
-        # OptionParser omits --version if no version is supplied.
-        version = self.version if wants_opts('version') else None
-        
         return OptionParser(prog=self.name,
                             description=meta['description'],
                             usage=usage,
                             epilog=meta['help'] or '',
-                            option_list=opts,
-                            add_help_option=wants_opts('help'),
-                            version=version)
+                            option_list=opts)
 
     def _get_console(self, opts):
         # Initialize a console object. This command may not have added

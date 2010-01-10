@@ -1205,7 +1205,6 @@ options:
 
 * ``console_opts``: -v/--verbose, -q/--quiet, --no-color
 * ``version_opts``: --version
-* ``help_opts``: -h/--help
 * ``conf_opts``: --config
 * ``log_opts``: --log-filename, --log-level
 * ``app_opts``: Application-wide options.
@@ -1214,14 +1213,13 @@ In the extreme case where you want to turn off all these options, you
 can pass ``global_opts=False``. With ``global_opts=False``, you can
 selectively add the options back in by setting the associated
 arguments to ``True``. For example, to disable all arguments except
-``-h/--help``, the decorator would be::
+``-v/-q``, the decorator would be::
 
-    @downloader(console_opts=False, version_opts=False, conf_opts=False,
-                log_opts=False, app_opts=False)
+    @downloader(version_opts=False, conf_opts=False, log_opts=False, app_opts=False)
 
    # or
 
-   @downloader(global_opts=False, help_opts=True)
+   @downloader(global_opts=False, console_opts=True)
 
 
 Appendix: Terminal Colors
